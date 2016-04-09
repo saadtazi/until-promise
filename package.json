@@ -11,11 +11,12 @@
     "coveralls": "nyc npm test && nyc report --reporter=text-lcov | coveralls",
     "lint": "eslint .",
     "test": "mocha",
-    "test:dev": "npm test -- --watch"
+    "test:dev": "npm test -- --watch",
+    "travis": "npm run lint && npm run coveralls"
   },
   "repository": {
     "type": "git",
-    "url": "http://tbd"
+    "url": "https://github.com/saadtazi/until-promise.git"
   },
   "keywords": [
     "promise",

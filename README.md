@@ -1,6 +1,6 @@
 A library that executes a function until its returned value satisfies some criteria.
 
-[![Dependency Status](https://david-dm.org/saadtazi/firefox-profile-js.png)](https://david-dm.org/saadtazi/firefox-profile-js)
+[![Dependency Status](https://david-dm.org/saadtazi/until-promise.svg)](https://david-dm.org/saadtazi/until-promise)
 
 # until-promise
 
