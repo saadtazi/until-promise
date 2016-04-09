@@ -1,0 +1,17 @@
+{
+  "extends": [
+    "airbnb/base"
+  ],
+  "env": {
+    "node": true
+  },
+  "rules": {
+    // These rules are disabled temporarily while we work on making this project compliant.
+    // If you are using this eslintrc file in your new project consider enabling these rules (by deleting them from the list).
+    "prefer-const": "off",
+    "comma-dangle": "off",
+    "prefer-arrow-callback": "off",
+    "max-len": "off",
+    "consistent-return": "off"
+  }
+}
