@@ -1,16 +1,19 @@
 let Prom = Promise;
 
+// setTimeout, the Promise way...
 const delay = (duration) =>
   new Prom((resolve) =>
     setTimeout(() => resolve(), duration)
   );
 
+
 const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}) => {
   let nbAttempts = 0;
   const startedAt = Date.now();
+  let alreadyFailed = false;
 
   const hasExpired = () =>
-    duration && (startedAt + duration < Date.now() - wait);
+    duration && (startedAt + duration < Date.now());
 
   const hasTriedEnough = () => {
     if (retries) { return nbAttempts >= retries; }
@@ -20,25 +23,30 @@ const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}
   return new Prom((resolve, reject) => {
     // to fail "exactly" after `duration`,
     // we have to reject in a `setInterval()`
-    let interval;
+    let timeout;
 
-    const fail = (err) => {
-      if (interval) {
-        clearInterval(interval);
-      }
+    const fail = (msg) => {
+      if (alreadyFailed) { return; }
+      alreadyFailed = true;
+      // time it took to fail
+      // mostly for testing and validation
+      let err = new Error(msg);
+      err.duration = Date.now() - startedAt;
+      err.nbAttempts = nbAttempts;
+
       reject(err);
     };
 
     if (duration) {
-      interval = setInterval(() => {
-        if (hasExpired()) {
-          fail(new Error(`condition not satified after ${Date.now() - startedAt}ms`));
+      timeout = setTimeout(() => {
+        if (!alreadyFailed) {
+          fail(`condition not satified after ${Date.now() - startedAt}ms`);
         }
-      }, wait);
+      }, duration);
     }
 
     // define a recursive function that gets executed
-    // until timeout or the condition is satisfied
+    // until timeout or `X` times or the condition is satisfied
     const executeAndCheckCondition = () => {
       nbAttempts++;
       // just in case `func` does not return a promise...
@@ -46,20 +54,21 @@ const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}
         .then((res) => {
           if (conditionFunction(res)) {
             // success
-            if (interval) { clearInterval(interval); }
+            if (timeout) { clearTimeout(timeout); }
             return resolve(res);
           }
           if (hasTriedEnough()) {
-            // we already `reject()` in `setInterval()`
-            return fail(new Error(`condition not satified after ${retries} attempts`));
+            return fail(`condition not satified after ${retries} attempts`);
           }
-          // no need to execute another time if wait
-          // no timeout and not satisfied? retry after `wait`ms
           delay(wait).then(() => {
-            if (hasExpired()) {
-              return fail(new Error(`condition not satified after ${Date.now() - startedAt}ms`));
+            if (!alreadyFailed) {
+              // there is no guarantee that setTimeout() will run
+              // when it is suppose to run... So we make sure...
+              if (hasExpired()) {
+                return fail(`condition not satified after ${Date.now() - startedAt}ms`);
+              }
+              executeAndCheckCondition();
             }
-            executeAndCheckCondition();
           });
         });
     };

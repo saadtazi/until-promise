@@ -19,6 +19,7 @@
   exports.setup = setup;
   var Prom = Promise;
 
+  // setTimeout, the Promise way...
   var delay = function delay(duration) {
     return new Prom(function (resolve) {
       return setTimeout(function () {
@@ -37,9 +38,10 @@
 
     var nbAttempts = 0;
     var startedAt = Date.now();
+    var alreadyFailed = false;
 
     var hasExpired = function hasExpired() {
-      return duration && startedAt + duration < Date.now() - wait;
+      return duration && startedAt + duration < Date.now();
     };
 
     var hasTriedEnough = function hasTriedEnough() {
@@ -52,47 +54,55 @@
     return new Prom(function (resolve, reject) {
       // to fail "exactly" after `duration`,
       // we have to reject in a `setInterval()`
-      var interval = void 0;
+      var timeout = void 0;
 
-      var fail = function fail(err) {
-        if (interval) {
-          clearInterval(interval);
+      var fail = function fail(msg) {
+        if (alreadyFailed) {
+          return;
         }
+        alreadyFailed = true;
+        // time it took to fail
+        // mostly for testing and validation
+        var err = new Error(msg);
+        err.duration = Date.now() - startedAt;
+        err.nbAttempts = nbAttempts;
+
         reject(err);
       };
 
       if (duration) {
-        interval = setInterval(function () {
-          if (hasExpired()) {
-            fail(new Error("condition not satified after " + (Date.now() - startedAt) + "ms"));
+        timeout = setTimeout(function () {
+          if (!alreadyFailed) {
+            fail("condition not satified after " + (Date.now() - startedAt) + "ms");
           }
-        }, wait);
+        }, duration);
       }
 
       // define a recursive function that gets executed
-      // until timeout or the condition is satisfied
+      // until timeout or `X` times or the condition is satisfied
       var executeAndCheckCondition = function executeAndCheckCondition() {
         nbAttempts++;
         // just in case `func` does not return a promise...
         return Prom.resolve(func()).then(function (res) {
           if (conditionFunction(res)) {
             // success
-            if (interval) {
-              clearInterval(interval);
+            if (timeout) {
+              clearTimeout(timeout);
             }
             return resolve(res);
           }
           if (hasTriedEnough()) {
-            // we already `reject()` in `setInterval()`
-            return fail(new Error("condition not satified after " + retries + " attempts"));
+            return fail("condition not satified after " + retries + " attempts");
           }
-          // no need to execute another time if wait
-          // no timeout and not satisfied? retry after `wait`ms
           delay(wait).then(function () {
-            if (hasExpired()) {
-              return fail(new Error("condition not satified after " + (Date.now() - startedAt) + "ms"));
+            if (!alreadyFailed) {
+              // there is no guarantee that setTimeout() will run
+              // when it is suppose to run... So we make sure...
+              if (hasExpired()) {
+                return fail("condition not satified after " + (Date.now() - startedAt) + "ms");
+              }
+              executeAndCheckCondition();
             }
-            executeAndCheckCondition();
           });
         });
       };

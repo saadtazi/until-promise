@@ -50,7 +50,7 @@ This library also expose a `setup({ promise })` function that allows to:
 * specify a Promise library like `bluebird` if needed (defaults to `Promise` which is available in nodejs and most [modern browser](http://caniuse.com/#search=promise))
 
 *Gotcha*
-* When used with `duration` option, we cannot guarantee that it will take exactly or a most `duration`ms, not only because of [the nature of Javascript time](http://ejohn.org/blog/accuracy-of-javascript-time/). [Additional info here](https://developer.mozilla.org/en-US/docs/Web/API/WindowTimers/setTimeout#Notes).
+* When used with `duration` option, we cannot guarantee that it will take exactly or a most `duration`ms, mostly because of [the nature of Javascript time](http://ejohn.org/blog/accuracy-of-javascript-time/). [Additional info here](https://developer.mozilla.org/en-US/docs/Web/API/WindowTimers/setTimeout#Notes).
 
 If the condition is never satisfied and `duration` is not a multiple of `wait`,
 then the returned promise might fail after `Math.ceil(failAfter / wait) * wait` ( which is `> failAfter`)
@@ -59,22 +59,28 @@ then the returned promise might fail after `Math.ceil(failAfter / wait) * wait` 
 This will resolve after ~600ms:
 ```js
 let a = 1;
+// `a` will equal 2 after 500ms
 setTimeout(() => { a = 2; }, 500);
 return until(
   function () { return Promise.resolve(a); },
   (res) => res === 2,
+  // the function will be executed at:
+  // ~0ms, ~200ms, ~400ms, ~600ms
   { wait: 200, duration: 1000 }
 );
 ```
 
-This is rejected after ~1000ms, even if `duration` is `900`:
+This is rejected after ~900ms:
 ```js
 let a = 1;
+// `a` will equal to 2 after 5000ms
 setTimeout(() => { a = 2; }, 5000);
 return until(
   function () { return Promise.resolve(a); },
   (res) => res === 2,
-  { wait: 200, duration: 900 }
+  // the function will be executed at:
+  // ~0ms, ~200ms, ~400ms and should fail at ~500ms (while waiting 200ms before doing the 4th call)
+  { wait: 200, duration: 500 }
 
 );
 ```
@@ -102,16 +108,19 @@ return until(doSomething, conditionFunction)
   .map(() => {...} );
 ```
 
-Note that this should be done only once: any call to `setup()` from a module will affect another module that also import `until-promise` in the same process.
+Note: you don't have to call `setup()` in all the files that `import`s `unitl-promise`: any call to `setup()` from a js file will affect another file that also uses `until-promise` (in the same `node` process of course).
 
 **FYI:** instead of using `setup()`, you can also wrap the `until()` call into a `promiseLib.resolve()`, like this:
 
 ```
 return Bluebird.resolve(until(doSomething, conditionFunction)
+  // `map()` is not a regular Promise method... yet...
   .map(() => {...} );
 ```
 
-## Dev Tips
+## Dev Tips?Reminders
+
+... Because I tend to forget things (and change way I do things between projects...)...
 
 ### release new version
 

@@ -5,7 +5,7 @@ import Bluebird from 'bluebird';
 
 describe('#until', function () {
   let func;
-  let condition = (res) => res === 6;
+  let condition;
   let attempts;
 
   beforeEach(() => {
@@ -14,6 +14,7 @@ describe('#until', function () {
       attempts++;
       return attempts;
     });
+    condition = (res) => res === 6;
   });
 
   it('should return a promise', function () {
@@ -42,6 +43,7 @@ describe('#until', function () {
     it('should fail if the condition is not satistied after X retries', function () {
       return until(func, condition, { retries: 5 }).should.be.rejectedWith(/after 5 attempts/);
     });
+
     it('should succeeded if the condition is  satistied before X retries', function () {
       return until(func, condition, { retries: 7 }).should.become(6);
     });
@@ -49,10 +51,35 @@ describe('#until', function () {
 
   describe('when used with `duration` option', function () {
     it('should fail if the condition is not satistied after Y ms', function () {
-      return until(func, condition, { wait: 1, duration: 5 }).should.be.rejectedWith(/after \d+ms/);
+      return until(func, condition, { wait: 100, duration: 400 })
+      .then(() => {
+        throw new Error('should have failed');
+      }, (err) => {
+        err.message.should.match(/after \d+ms/);
+        // it sometimes take a little more time than expected
+        // the goal is to prove that it fails at ~300ms, so before 400ms
+        err.nbAttempts.should.eq(4);
+        err.duration.should.be.below(450);
+      });
     });
+
     it('should succeeded if the condition is  satistied before Y ms', function () {
       return until(func, condition, { wait: 10, duration: 80 }).should.become(6);
+    });
+
+    describe('when `duration` is not a multiple of `wait`', function () {
+      it('should fail as soon as possible', function () {
+        return until(func, condition, { wait: 100, duration: 150 })
+          .then(() => {
+            throw new Error('should have failed');
+          }, (err) => {
+            err.message.should.match(/after \d+ms/);
+            // it sometimes take a little more time than expected
+            // the goal is to prove that it fails at ~150ms, so before 200ms
+            err.nbAttempts.should.eq(2);
+            err.duration.should.be.below(185);
+          });
+      });
     });
   });
 
@@ -71,7 +98,7 @@ describe('#until', function () {
   });
 
   describe('#setup()', function () {
-    it('should allow to pass a promise library', function () {
+    it('should allow to configure `until-promise` so it uses a custom promise library', function () {
       const regularPromise = until(() => 1, (res) => res === 1);
       // regular `Promise` do not have method `delay`
       regularPromise.should.not.respondTo('delay');
