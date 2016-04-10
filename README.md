@@ -110,3 +110,10 @@ Note that this should be done only once: any call to `setup()` from a module wil
 return Bluebird.resolve(until(doSomething, conditionFunction)
   .map(() => {...} );
 ```
+
+## Dev Tips
+
+### release new version
+
+You got a green build for a branch, you merged that branch in master, master is clean... So:
+* `npm version [major|minor|patch]`

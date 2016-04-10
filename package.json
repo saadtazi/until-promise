@@ -4,15 +4,17 @@
   "description": "utility functions that poll until a condition is met",
   "main": "dist/index.js",
   "scripts": {
-    "precommit": "npm run lint && npm test",
+    "precommit": "npm run lint && npm test && npm run compile",
     "prepush": "npm run lint && npm test",
     "compile": "babel src -d dist",
+    "ci": "npm run lint && npm run coveralls",
     "cov": "nyc --reporter=html --reporter=text npm test",
     "coveralls": "nyc npm test && nyc report --reporter=text-lcov | coveralls",
     "lint": "eslint .",
+    "preversion": "npm run compile",
+    "postversion": "git push && git push --tags",
     "test": "mocha",
-    "test:dev": "npm test -- --watch",
-    "travis": "npm run lint && npm run coveralls"
+    "test:dev": "npm test -- --watch"
   },
   "repository": {
     "type": "git",
@@ -23,7 +25,8 @@
     "poll",
     "until",
     "wait",
-    "until"
+    "retries",
+    "retry"
   ],
   "author": "Saad Tazi <stazi@fruitsoftware.com>",
   "license": "ISC",
