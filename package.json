@@ -4,7 +4,7 @@
   "description": "utility functions that poll until a condition is met",
   "main": "dist/index.js",
   "scripts": {
-    "precommit": "npm run lint && npm test && npm run compile",
+    "precommit": "npm run lint && npm test",
     "prepush": "npm run lint && npm test",
     "compile": "babel src -d dist",
     "ci": "npm run lint && npm run coveralls",
