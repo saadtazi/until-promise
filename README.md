@@ -17,10 +17,6 @@ In theory (...and in practice), you can combine `retries` and `duration` options
 
 To throttle the calls, you can pass `wait` option. The first call is done immediately. Then, if the condition is not satisfied, it waits `wait`ms before executing the function a second time (...and so on...)
 
-### Notes
-
-* This library has no dependencies on bluebird. Just a `dev dependency` so I can test `setup({ promise })` function.
-
 # Usage
 
 ```js
@@ -56,7 +52,7 @@ This library also expose a `setup({ promise })` function that allows to:
 *Gotcha*
 * When used with `duration` option, we cannot guarantee that it will take exactly or a most `duration`ms, not only because of [the nature of Javascript time](http://ejohn.org/blog/accuracy-of-javascript-time/). [Additional info here](https://developer.mozilla.org/en-US/docs/Web/API/WindowTimers/setTimeout#Notes).
 
-If the condition is never satisfied and `failAfter` is not a multiple of `wait`,
+If the condition is never satisfied and `duration` is not a multiple of `wait`,
 then the returned promise might fail after `Math.ceil(failAfter / wait) * wait` ( which is `> failAfter`)
 
 
@@ -64,22 +60,53 @@ This will resolve after ~600ms:
 ```js
 let a = 1;
 setTimeout(() => { a = 2; }, 500);
-return promisePoll(
+return until(
   function () { return Promise.resolve(a); },
   (res) => res === 2,
-  200,
-  1000
+  { wait: 200, duration: 1000 }
 );
 ```
 
-This is rejected after ~1000ms, even if `failedAfter` is `900`:
+This is rejected after ~1000ms, even if `duration` is `900`:
 ```js
 let a = 1;
 setTimeout(() => { a = 2; }, 5000);
-return promisePoll(
+return until(
   function () { return Promise.resolve(a); },
   (res) => res === 2,
-  200,
-  900
+  { wait: 200, duration: 900 }
+
 );
+```
+
+## Custom Promise Library
+
+### Note
+
+> This library has **no** dependencies on bluebird. Just a `dev dependency` so I can test `setup({ promise })` function.
+
+If you want to use a custom Promise library (to benefit
+from some extra chaining methods exposed by this library for example...),
+use can use `setup({ promise: customPromiseLibrary});`
+
+Here is an example with [`bluebird`](http://bluebirdjs.com/docs/getting-started.html):
+
+```
+import until, {setup as untilSetup } from 'until-promise';
+import bluebird as bluebird;
+
+untilSetup({promise: bluebird});
+
+return until(doSomething, conditionFunction)
+  // `map` is available with bluebird, not with regular Promise
+  .map(() => {...} );
+```
+
+Note that this should be done only once: any call to `setup()` from a module will affect another module that also import `until-promise` in the same process.
+
+**FYI:** instead of using `setup()`, you can also wrap the `until()` call into a `promiseLib.resolve()`, like this:
+
+```
+return Bluebird.resolve(until(doSomething, conditionFunction)
+  .map(() => {...} );
 ```

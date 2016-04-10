@@ -1,6 +1,6 @@
 {
   "name": "until-promise",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "description": "utility functions that poll until a condition is met",
   "main": "dist/index.js",
   "scripts": {
