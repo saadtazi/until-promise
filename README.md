@@ -1,6 +1,6 @@
 A library that executes a function until its returned value satisfies some criteria.
 
-[![Dependency Status](https://david-dm.org/saadtazi/until-promise.svg)](https://david-dm.org/saadtazi/until-promise)
+[![Dependency Status](https://david-dm.org/saadtazi/until-promise.svg)](https://david-dm.org/saadtazi/until-promise) [![Coverage Status](https://coveralls.io/repos/github/saadtazi/until-promise/badge.svg?branch=master)](https://coveralls.io/github/saadtazi/until-promise?branch=master) [![Build Status](https://travis-ci.org/saadtazi/until-promise.svg)](https://travis-ci.org/saadtazi/until-promise)
 
 # until-promise
 
