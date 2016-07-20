@@ -6,11 +6,15 @@ const delay = (duration) =>
     setTimeout(() => resolve(), duration)
   );
 
+function buildResultsMessage(results) {
+  return `Returned value were: ${results}`;
+}
 
 const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}) => {
   let nbAttempts = 0;
   const startedAt = Date.now();
   let alreadyFailed = false;
+  const receivedResults = [];
 
   const hasExpired = () =>
     duration && (startedAt + duration < Date.now());
@@ -40,7 +44,8 @@ const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}
     if (duration) {
       timeout = setTimeout(() => {
         if (!alreadyFailed) {
-          fail(`condition not satified after ${Date.now() - startedAt}ms`);
+          fail(`condition not satified after ${Date.now() - startedAt}ms. \
+${buildResultsMessage(receivedResults)}`);
         }
       }, duration);
     }
@@ -49,23 +54,29 @@ const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}
     // until timeout or `X` times or the condition is satisfied
     const executeAndCheckCondition = () => {
       nbAttempts++;
+
       // just in case `func` does not return a promise...
       return Prom.resolve(func())
         .then((res) => {
+          receivedResults.push(res);
+
           if (conditionFunction(res)) {
             // success
             if (timeout) { clearTimeout(timeout); }
             return resolve(res);
           }
+
           if (hasTriedEnough()) {
-            return fail(`condition not satified after ${retries} attempts`);
+            return fail(`condition not satified after ${retries} attempts. \
+${buildResultsMessage(receivedResults)}`);
           }
           delay(wait).then(() => {
             if (!alreadyFailed) {
               // there is no guarantee that setTimeout() will run
               // when it is suppose to run... So we make sure...
               if (hasExpired()) {
-                return fail(`condition not satified after ${Date.now() - startedAt}ms`);
+                return fail(`condition not satified after \
+${Date.now() - startedAt}ms. ${buildResultsMessage(receivedResults)}`);
               }
               executeAndCheckCondition();
             }

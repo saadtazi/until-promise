@@ -28,6 +28,10 @@
     });
   };
 
+  function buildResultsMessage(results) {
+    return "Returned value were: " + results;
+  }
+
   var pollUntil = function pollUntil(func, conditionFunction) {
     var _ref = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
@@ -82,8 +86,12 @@
       // until timeout or `X` times or the condition is satisfied
       var executeAndCheckCondition = function executeAndCheckCondition() {
         nbAttempts++;
+        var receivedResults = [];
+
         // just in case `func` does not return a promise...
         return Prom.resolve(func()).then(function (res) {
+          receivedResults.push(res);
+
           if (conditionFunction(res)) {
             // success
             if (timeout) {
@@ -91,15 +99,16 @@
             }
             return resolve(res);
           }
+
           if (hasTriedEnough()) {
-            return fail("condition not satified after " + retries + " attempts");
+            return fail("condition not satified after " + retries + " attempts. " + buildResultsMessage(receivedResults));
           }
           delay(wait).then(function () {
             if (!alreadyFailed) {
               // there is no guarantee that setTimeout() will run
               // when it is suppose to run... So we make sure...
               if (hasExpired()) {
-                return fail("condition not satified after " + (Date.now() - startedAt) + "ms");
+                return fail("condition not satified after " + (Date.now() - startedAt) + "ms. " + buildResultsMessage(receivedResults));
               }
               executeAndCheckCondition();
             }
