@@ -25,6 +25,15 @@ describe('#until', function () {
     return until(() => Promise.resolve(2), (res) => res === 2).should.become(2);
   });
 
+  it('should contain the list of values returned', function () {
+    let i = 0;
+    return until(
+      () => Promise.resolve(i++),
+      (value) => value >= 10,
+      { wait: 10, duration: 50 }
+    ).should.be.rejectedWith(/Returned value were: 0,1,2,3,4/);
+  });
+
   describe('when used without options', function () {
     it('should execute the function until the condition is satistied', function () {
       return until(func, condition).then(() => {
