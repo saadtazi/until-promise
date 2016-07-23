@@ -10,12 +10,12 @@ until(aFunction, aConditionFunction, someOptions).then(...);
 
 Supports 3 modes:
 * *infinite*: (no `duration` or `retries` option)
-* `retries` option (`retries` option): the
-* `duration` option:
+* `retries` option (`retries` option)
+* `duration` option:=
 
 In theory (...and in practice), you can combine `retries` and `duration` options.
 
-To throttle the calls, you can pass `wait` option. The first call is done immediately. Then, if the condition is not satisfied, it waits `wait`ms before executing the function a second time (...and so on...)
+To "throttle" the calls, you can pass `wait` option. The first call is done immediately. Then, if the condition is not satisfied, it waits `wait`ms before executing the function a second time (...and so on...)
 
 # Usage
 
@@ -44,11 +44,38 @@ until(
 });
 ```
 
-# Setup
+# Setup / Reset
 
-This library also expose a `setup({ promise })` function that allows to:
-* specify a Promise library like `bluebird` if needed (defaults to `Promise` which is available in nodejs and most [modern browser](http://caniuse.com/#search=promise))
+This library also expose a `setup(options)` function that allows to configure default options that will be used eveytime `until` is called (until `setup(options)` or `reset()` are called):
+* `Promise`: specify a Promise library like `bluebird` if needed (defaults to `Promise` which is available in nodejs and most [modern browser](http://caniuse.com/#search=promise))
+* `onError`: define a custom Error handler: its signature is:
+```
+// `reject` should be called exactly once.
+onError({ errorType, reject, nbAttempts, startedAt, capturedResults }, options)
+```
+* `captureResults`: if not falsy and > 0, `until` will cature the last X results and pass them to `onError` handler (`capturedResults` property)
+* `wait`: time to wait between 2 calls - default: 0
+* `duration`: max number of milliseconds before rejecting - default: Infinity
+* `retries`: default number of retries before rejecting - default: Infinity
 
+
+Note that any of those options can also be used when invoking `until(func, testFunc, options)` (third param). Adding those options when invoking `until` will not modify the default `until` options
+
+The default options are:
+```
+{
+  wait: 0,
+  captureResults: 0,
+  Promise,
+  onError({ errorType, reject, nbAttempts, startedAt, capturedResults }, options) {
+    let err = new Error(`condition not satified after ${Date.now() - startedAt}ms / nbAttempts: ${nbAttempts}`);
+    // note that you can attach properties to error if needed. For example:
+    err.duration = Date.now() - startedAt;
+    Object.assign(err, { nbAttempts, errorType, startedAt, capturedResults, options });
+    reject(err);
+  }
+}
+```
 *Gotcha*
 * When used with `duration` option, we cannot guarantee that it will take exactly or a most `duration`ms, mostly because of [the nature of Javascript time](http://ejohn.org/blog/accuracy-of-javascript-time/). [Additional info here](https://developer.mozilla.org/en-US/docs/Web/API/WindowTimers/setTimeout#Notes).
 
