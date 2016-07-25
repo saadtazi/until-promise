@@ -1,5 +1,5 @@
 /* global sandbox:false*/
-import until, { setup } from '../../src';
+import until, { setup, reset } from '../../src';
 // only to test `setup({promise})` function
 import Bluebird from 'bluebird';
 
@@ -33,15 +33,20 @@ describe('#until', function () {
     });
   });
 
-  describe('when used with `retries` option', function () {
-    it('should fail if the condition is not satistied after X retries', function () {
-      return until(func, condition, { retries: 5 }).should.be.rejectedWith(/after 5 attempts/);
-    });
-  });
 
   describe('when used with `retries` option', function () {
-    it('should fail if the condition is not satistied after X retries', function () {
-      return until(func, condition, { retries: 5 }).should.be.rejectedWith(/after 5 attempts/);
+    it('should fail if the condition is not satistied after X retries (default `onError`)', function () {
+      return until(func, condition, { retries: 5 }).then(
+        () => {
+          throw new Error('not be rejected');
+        },
+        (err) => {
+          err.should.have.property('nbAttempts', 5);
+          err.should.have.property('errorType', 'retries');
+          err.should.have.property('capturedResults').which.eql([]);
+          err.options.should.have.property('retries', 5);
+          err.should.have.property('startedAt');
+        });
     });
 
     it('should succeeded if the condition is  satistied before X retries', function () {
@@ -97,13 +102,75 @@ describe('#until', function () {
     });
   });
 
-  describe('#setup()', function () {
-    it('should allow to configure `until-promise` so it uses a custom promise library', function () {
+  describe('when `onError` option is provided', function () {
+    it('should allow to customize the error rejection', function () {
+      return until(
+        () => true,
+        () => false,
+        {
+          retries: 1,
+          onError: ({ reject }) => reject(new Error('Boom!!'))
+        }
+      ).should.be.rejectedWith('Boom!!');
+    });
+
+    it('should allow to capture results and make them available in the onError handler', function () {
+      let value = 1;
+      return until(
+        () => value++,
+        () => false,
+        {
+          Promise: Bluebird, // for debugging (reports Unhandled rejection)
+          captureResults: 5,
+          retries: 10,
+          onError: ({ reject, capturedResults }) => {
+            capturedResults.should.eql([6, 7, 8, 9, 10]);
+            reject(new Error('Boom'));
+          }
+        }
+      ).should.be.rejectedWith('Boom');
+    });
+  });
+
+  describe('with synchronous code', function () {
+    function longSynchronousFunction() {
+      // takes 22ms on my laptop
+      let j = 0;
+      // const d1 = new Date();
+      for (let i = 0; i < 10000000; i++) {
+        j++;
+      }
+      // console.log((new Date()) - d1);
+      return 1;
+    }
+    it('should fail as soon as possible', function () {
+      return until(
+        longSynchronousFunction,
+        () => false,
+        {
+          Promise: Bluebird,
+          captureResults: 5,
+          duration: 10,
+
+        }
+      ).then(
+        () => { throw new Error('should be rejected'); }
+      ).should.be.rejectedWith(/condition not satified/);
+    });
+  });
+
+  describe('#setup(options)', function () {
+    afterEach(function () {
+      // make sure we have regular `Promise`s
+      reset();
+    });
+
+    it('should allow to configure a custom promise library', function () {
       const regularPromise = until(() => 1, (res) => res === 1);
       // regular `Promise` do not have method `delay`
       regularPromise.should.not.respondTo('delay');
 
-      setup({ promise: Bluebird });
+      setup({ Promise: Bluebird });
       const bluebirdPromise = until(() => 1, (res) => res === 1);
       // bluebird `Promise` do have method `delay`
       bluebirdPromise.should.respondTo('delay');
@@ -111,9 +178,25 @@ describe('#until', function () {
       return Promise.all([regularPromise, bluebirdPromise]);
     });
 
-    afterEach(function () {
-      // make sure we have regular `Promise`s
-      setup();
+    it('should allow to configure a custom `onError` handler', function () {
+      setup({
+        onError: ({ reject }) => {
+          reject(new Error('Boom!'));
+        }
+      });
+      return until(() => 1, () => false, { retries: 1 }).should.be.rejectedWith('Boom!');
+    });
+  });
+
+  describe('#reset()', function () {
+    it('should reset default options', function () {
+      setup({
+        onError: ({ reject }) => {
+          reject(new Error('Boom!'));
+        }
+      });
+      reset();
+      return until(() => 1, () => false, { retries: 1 }).should.be.rejectedWith(/condition not satified after/);
     });
   });
 });

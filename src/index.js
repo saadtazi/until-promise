@@ -1,46 +1,44 @@
-let Prom = Promise;
+const defaultOptions = {
+  wait: 0,
+  captureResults: 0,
+  Promise,
+  onError({ errorType, reject, nbAttempts, startedAt, capturedResults }, options) {
+    let err = new Error(`condition not satified after ${Date.now() - startedAt}ms / nbAttempts: ${nbAttempts}`);
+    err.duration = Date.now() - startedAt;
+    Object.assign(err, { nbAttempts, errorType, startedAt, capturedResults, options });
+    reject(err);
+  }
+};
+
+let modifiedOptions = { ...defaultOptions };
 
 // setTimeout, the Promise way...
 const delay = (duration) =>
-  new Prom((resolve) =>
+  new modifiedOptions.Promise((resolve) =>
     setTimeout(() => resolve(), duration)
-  );
+);
 
-
-const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}) => {
+const pollUntil = (func, conditionFunction, options = {}) => {
+  const { Promise, wait, duration, retries, onError, captureResults = 0 } = { ...modifiedOptions, ...options };
   let nbAttempts = 0;
   const startedAt = Date.now();
   let alreadyFailed = false;
-
-  const hasExpired = () =>
-    duration && (startedAt + duration < Date.now());
 
   const hasTriedEnough = () => {
     if (retries) { return nbAttempts >= retries; }
     return false;
   };
-
-  return new Prom((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     // to fail "exactly" after `duration`,
     // we have to reject in a `setInterval()`
     let timeout;
-
-    const fail = (msg) => {
-      if (alreadyFailed) { return; }
-      alreadyFailed = true;
-      // time it took to fail
-      // mostly for testing and validation
-      let err = new Error(msg);
-      err.duration = Date.now() - startedAt;
-      err.nbAttempts = nbAttempts;
-
-      reject(err);
-    };
+    let capturedResults = [];
 
     if (duration) {
       timeout = setTimeout(() => {
         if (!alreadyFailed) {
-          fail(`condition not satified after ${Date.now() - startedAt}ms`);
+          alreadyFailed = true;
+          return onError({ errorType: 'duration', reject, nbAttempts, startedAt, capturedResults }, options);
         }
       }, duration);
     }
@@ -50,23 +48,22 @@ const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}
     const executeAndCheckCondition = () => {
       nbAttempts++;
       // just in case `func` does not return a promise...
-      return Prom.resolve(func())
+      return Promise.resolve(func())
         .then((res) => {
+          if (captureResults) {
+            capturedResults = [...capturedResults.slice(1 - captureResults), res];
+          }
           if (conditionFunction(res)) {
             // success
             if (timeout) { clearTimeout(timeout); }
             return resolve(res);
           }
           if (hasTriedEnough()) {
-            return fail(`condition not satified after ${retries} attempts`);
+            alreadyFailed = true;
+            return onError({ errorType: 'retries', reject, nbAttempts, startedAt, capturedResults }, options);
           }
           delay(wait).then(() => {
             if (!alreadyFailed) {
-              // there is no guarantee that setTimeout() will run
-              // when it is suppose to run... So we make sure...
-              if (hasExpired()) {
-                return fail(`condition not satified after ${Date.now() - startedAt}ms`);
-              }
               executeAndCheckCondition();
             }
           });
@@ -77,8 +74,14 @@ const pollUntil = (func, conditionFunction, { wait = 0, duration, retries } = {}
   });
 };
 
-export function setup({ promise = Promise } = {}) {
-  Prom = promise;
+export function setup(options = {}) {
+  modifiedOptions = { ...modifiedOptions, ...options };
+  return modifiedOptions;
+}
+
+export function reset() {
+  modifiedOptions = { ...defaultOptions };
+  return modifiedOptions;
 }
 
 export default pollUntil;
